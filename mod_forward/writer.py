@@ -6,7 +6,7 @@ async def save_chat_to_db(role, content, session_id, model_name, nickname):
     url = os.getenv("SUPABASE_URL")
     key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
     
-    # 算时区：在代码里手动计算北京时间
+    # 核心：手动计算北京时间 (UTC+8)
     beijing_time = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
     
     headers = {
@@ -22,8 +22,11 @@ async def save_chat_to_db(role, content, session_id, model_name, nickname):
         "session_id": session_id,
         "model_name": model_name,
         "nickname": nickname,
-        "created_at_beijing": beijing_time  # 存入我们在 SQL 里设好的这一列
+        "created_at_beijing": beijing_time # 对应 SQL 里的字段
     }
     
     async with httpx.AsyncClient() as client:
-        await client.post(f"{url}/rest/v1/chat_logs", json=data, headers=headers)
+        try:
+            await client.post(f"{url}/rest/v1/chat_logs", json=data, headers=headers)
+        except Exception as e:
+            print(f"存储失败了，但不影响聊天: {e}")
