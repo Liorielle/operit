@@ -7,7 +7,7 @@ async def stream_forward(payload):
     base_url = os.getenv("LLM_BASE_URL")
     api_key = os.getenv("LLM_API_KEY")
     
-    headers = {"Authorization": f"Base {api_key}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     
     async with httpx.AsyncClient() as client:
         async with client.stream(
