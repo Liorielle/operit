@@ -2,6 +2,39 @@ import os
 import httpx
 from datetime import datetime, timedelta
 
+async def save_user_message(parsed_data):
+    """
+    保存用户消息
+    
+    参数：
+    - parsed_data: 解析后的请求数据（来自 mod_parse/parser.py）
+    """
+    await save_chat_to_db(
+        role="user",
+        content=parsed_data["user_msg"],
+        session_id=parsed_data["session_id"],
+        model_name=parsed_data["model_name"],
+        nickname="我"
+    )
+
+async def save_ai_reply(parsed_data, ai_reply_box):
+    """
+    保存 AI 回复
+    
+    参数：
+    - parsed_data: 解析后的请求数据（来自 mod_parse/parser.py）
+    - ai_reply_box: 包含完整 AI 回复的列表容器
+    """
+    if ai_reply_box:
+        full_ai_text = ai_reply_box[0]
+        await save_chat_to_db(
+            role="assistant",
+            content=full_ai_text,
+            session_id=parsed_data["session_id"],
+            model_name=parsed_data["model_name"],
+            nickname="Liorielle"
+        )
+
 async def save_chat_to_db(role, content, session_id, model_name, nickname):
     """
     异步存储对话到 Supabase
