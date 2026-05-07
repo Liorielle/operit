@@ -2,12 +2,12 @@ import httpx
 import json
 import os
 
-async def stream_forward(payload, response_container: list):
+async def stream_forward(parsed_data, response_container: list):
     """
-    流式转发函数（笔记本方案）
+    流式转发函数
     
     参数：
-    - payload: 原始请求体
+    - parsed_data: 解析后的请求数据（来自 mod_parse/parser.py）
     - response_container: 列表容器，用于存储完整回复
     
     流程：
@@ -32,7 +32,7 @@ async def stream_forward(payload, response_container: list):
         async with client.stream(
             "POST",
             f"{base_url}/chat/completions",
-            json=payload,
+            json=parsed_data["body"],  # ← 改这里：使用 parsed_data["body"]
             headers=headers,
             timeout=60
         ) as response:
