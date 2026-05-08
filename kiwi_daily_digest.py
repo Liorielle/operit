@@ -1580,3 +1580,28 @@ if __name__ == "__main__":
     
     # 测试每日整理
     # asyncio.run(run_daily_digest())
+
+# ============================================================
+# 应用生命周期管理（供 Main.py 调用）
+# ============================================================
+
+_scheduler_task = None
+
+async def setup_scheduler():
+    """应用启动时调用：启动每日整理调度器"""
+    global _scheduler_task
+    print("🚀 启动每日整理调度器...")
+    _scheduler_task = asyncio.create_task(daily_digest_scheduler())
+    print("✅ 每日整理调度器已启动")
+
+async def shutdown_scheduler():
+    """应用关闭时调用：优雅停止调度器"""
+    global _scheduler_task
+    print("🛑 停止每日整理调度器...")
+    if _scheduler_task and not _scheduler_task.done():
+        _scheduler_task.cancel()
+        try:
+            await _scheduler_task
+        except asyncio.CancelledError:
+            pass
+    print("✅ 每日整理调度器已停止")
