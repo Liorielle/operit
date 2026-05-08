@@ -195,10 +195,26 @@ async def save_memory(content: str, importance: int, source_session: str,
 async def get_chat_messages_for_date(date_str: str) -> List[Dict]:
     """获取指定日期的聊天消息"""
     client = get_supabase_client()
-    # 这里假设你有chat_messages表，根据实际情况调整
+    # 使用chat_logs表，适配中文列名
     try:
-        return await client.get("chat_messages", f"select=role,content,time&date=eq.{date_str}&order=time.asc")
-    except Exception:
+        # 转换日期格式，假设"创建于某地"是带时区的时间戳
+        # 需要按日期过滤"创建于某地"字段
+        messages = await client.get("chat_logs", f"select=ID,角色,昵称,模型名称,内容&创建于某地=gte.{date_str}T00:00:00+08:00&创建于某地=lt.{date_str}T23:59:59+08:00&order=创建于某地.asc")
+        
+        # 转换为标准格式
+        formatted_messages = []
+        for msg in messages:
+            formatted_messages.append({
+                'id': msg.get('ID'),
+                'role': msg.get('角色'),
+                'nickname': msg.get('昵称'),
+                'model': msg.get('模型名称'),
+                'content': msg.get('内容'),
+                'time': msg.get('创建于某地')
+            })
+        return formatted_messages
+    except Exception as e:
+        print(f"获取聊天记录失败: {e}")
         return []
 
 async def save_calendar_page(date_str: str, page_type: str, sections: List[Dict], 
