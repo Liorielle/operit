@@ -5,8 +5,12 @@ from mod_auth.checker import auth_check
 from mod_parse.parser import parse_request
 from mod_forward.handler import stream_forward
 from mod_database.writer import save_user_message, save_ai_reply
+# 新增导入
+from mod_calendar.injector import get_calendar_context
+
 
 app = FastAPI()
+
 
 @app.get("/v1/models")
 async def list_models():
@@ -17,6 +21,7 @@ async def list_models():
     ]
     return JSONResponse(content={"object": "list", "data": models})
 
+
 @app.post("/v1/chat/completions")
 async def main_gateway(
     request: Request,
@@ -25,10 +30,11 @@ async def main_gateway(
     x_session_id: str = Header("default")
 ):
     """
-    核心网关接口：A → B → C → D → E
+    核心网关接口：A → B → C → C1 → D → E
     A: 鉴权
     B: 解析请求
     C: 保存用户消息
+    C1: 日历摘要注入 ← 新增
     D: 流式转发
     E: 保存 AI 回复
     """
@@ -42,6 +48,11 @@ async def main_gateway(
     # ========== C：保存用户消息 ==========
     background_tasks.add_task(save_user_message, parsed_data)
     
+    # ========== C1：日历摘要注入 ========== ← 新增这3行
+    calendar_context = await get_calendar_context(parsed_data, x_session_id)
+    if calendar_context:
+        parsed_data["calendar_context"] = calendar_context
+    
     # ========== D + E：流式转发 + 保存 AI 回复 ==========
     ai_reply_box = []
     
@@ -53,6 +64,7 @@ async def main_gateway(
         background_tasks.add_task(save_ai_reply, parsed_data, ai_reply_box)
     
     return StreamingResponse(wrapper(), media_type="text/event-stream")
+
 
 if __name__ == "__main__":
     import uvicorn
