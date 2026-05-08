@@ -7,7 +7,6 @@ from mod_parse.parser import parse_request
 from mod_forward.handler import stream_forward
 from mod_database.writer import save_user_message, save_ai_reply
 from kiwi_daily_digest import setup_scheduler, shutdown_scheduler
-
 # ========== 应用生命周期 ==========
 @asynccontextmanager
 async def lifespan(app: FastAPI):
