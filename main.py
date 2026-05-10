@@ -1,23 +1,13 @@
 import os
-from fastapi import FastAPI, Request, Header, BackgroundTasks
+from fastapi import FastAPI, Request, HTTPException, Header, BackgroundTasks
 from fastapi.responses import StreamingResponse, JSONResponse
-from contextlib import asynccontextmanager
 from mod_auth.checker import auth_check
 from mod_parse.parser import parse_request
 from mod_forward.handler import stream_forward
 from mod_database.writer import save_user_message, save_ai_reply
-from kiwi_daily_digest import setup_scheduler, shutdown_scheduler
-# ========== 应用生命周期 ==========
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """应用启动和关闭的钩子"""
-    await setup_scheduler()
-    yield
-    await shutdown_scheduler()
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
-# ========== API 端点 ==========
 @app.get("/v1/models")
 async def list_models():
     """返回支持的模型列表"""
