@@ -83,13 +83,6 @@ async def main_gateway(
     if supabase and "messages" in parsed_data:
         print("🔍 拦截检查站启动：正在去 Supabase 取件，组装超级档案袋...")
         
-        # 1. 提取用户刚说的最后一句话（为了看有没有触发关键词）
-        latest_user_msg = ""
-        for msg in reversed(parsed_data.get("messages", [])):
-            if msg.get("role") == "user":
-                latest_user_msg = str(msg.get("content", ""))
-                break
-
         # 2. 去 Supabase 读取四大固定脑室
         try:
             config_res = supabase.table('prompts_config').select('*').limit(1).execute()
@@ -101,17 +94,6 @@ async def main_gateway(
         interaction_rules = cfg.get('interaction_rules', '')
         permanent_memory = cfg.get('permanent_memory', '')
         output_format = cfg.get('output_format', '')
-
-        # 3. 去 Supabase 检查关键词命中（神经反射区）
-        injected_memories = []
-        try:
-            triggers_res = supabase.table('keyword_triggers').select('*').execute()
-            for trigger in triggers_res.data:
-                kw = trigger.get('keyword', '')
-                if kw and kw in latest_user_msg:
-                    injected_memories.append(trigger.get('memory_injection', ''))
-        except Exception:
-            pass
 
         # 4. 拼装超级系统提示词（严格按顺序，最前面是不变的，为了命中缓存省钱！）
         super_system_prompt = f"""[核心人格]
@@ -126,12 +108,7 @@ async def main_gateway(
 [输出规范]
 {output_format}"""
 
-        # 如果命中关键词，把这段专属记忆加在下面
-        if injected_memories:
-            super_system_prompt += "\n\n[记忆命中]\n" + "\n".join(injected_memories)
-            print("🎯 触发关键词！已向超级档案袋注入专属记忆。")
-
-        # 把原来的冷启动也塞进来
+        # 把冷启动上下文塞进来
         if cold_start_context:
             super_system_prompt += f"\n\n[冷启动上下文]\n{cold_start_context}"
 
