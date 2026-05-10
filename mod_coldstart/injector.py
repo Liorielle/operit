@@ -38,7 +38,7 @@ async def get_cold_start_context(current_session_id):
         shield_prompt += "---过去语气参考开始---\n"
         
         for msg in history:
-            role_name = "User" if msg['content'] == 'user' else "Rhys"
+            role_name = "User" if msg['role'] == 'user' else "Rhys"
             shield_prompt += f"{role_name}: {msg['content']}\n" 
             
         shield_prompt += "---过去语气参考结束---\n"
