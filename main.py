@@ -169,11 +169,10 @@ async def main_gateway(
 
             # 第 3 条消息：关键词注入（动态内容，不缓存）❌
             if injected_memories:
-    new_messages.append({
-        "role": "system",
-        "content": "[记忆命中]\n" + "\n".join(injected_memories)
-    })
-
+                new_messages.append({  # ← 这里缩进错了
+                    "role": "system",
+                    "content": "..." 
+                })
 
             # 后续消息：用户和助手的对话（完全不缓存）❌
             for msg in target_dict["messages"]:
