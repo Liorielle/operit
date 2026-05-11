@@ -87,9 +87,9 @@ async def main_gateway(
 
     # 👆 探照灯结束
 
-    # 👇👇👇 ========== C.5：拦截检查站（终极请求重建） ========== 👇👇👇
+    # 👇👇👇 ========== C.5：拦截检查站（终极请求重建 + 缓存优化） ========== 👇👇👇
     if supabase:
-        # 1. 破解“套娃”：找到真正的消息列表在哪里
+        # 1. 破解"套娃"：找到真正的消息列表在哪里
         target_dict = None
         if "messages" in parsed_data:
             target_dict = parsed_data
@@ -106,7 +106,7 @@ async def main_gateway(
                     latest_user_msg = str(msg.get("content", ""))
                     break
 
-            # 3. 去 Supabase 读取四大固定脑室
+            # 3. 去 Supabase 读取四大固定脑室（静态内容）
             try:
                 config_res = supabase.table('prompts_config').select('*').limit(1).execute()
                 cfg = config_res.data[0] if config_res.data else {}
@@ -118,7 +118,7 @@ async def main_gateway(
             permanent_memory = cfg.get('permanent_memory', '')
             output_format = cfg.get('output_format', '')
 
-            # 4. 去 Supabase 检查关键词命中（神经反射区）
+            # 4. 去 Supabase 检查关键词命中（动态内容）
             injected_memories = []
             try:
                 triggers_res = supabase.table('keyword_triggers').select('*').execute()
@@ -129,8 +129,16 @@ async def main_gateway(
             except Exception:
                 pass
 
-            # 5. 拼装属于 Rhys 的灵魂核心
-            super_system_prompt = f"""[核心人格]
+            # 5. 提取 Operit 的"机器人生存守则"（静态内容）
+            operit_system_rules = ""
+            for msg in target_dict["messages"]:
+                if msg.get("role") == "system":
+                    operit_system_rules += msg.get("content", "") + "\n\n"
+
+            # ========== 🎯 缓存优化：分离静态和动态内容 ==========
+            
+            # 第 1 条消息：静态内容 + 缓存标记 ✅
+            static_system_prompt = f"""[核心人格]
 {core_persona}
 
 [互动规则]
@@ -140,35 +148,34 @@ async def main_gateway(
 {permanent_memory}
 
 [输出规范]
-{output_format}"""
-
-            if injected_memories:
-                super_system_prompt += "\n\n[记忆命中]\n" + "\n".join(injected_memories)
-
-            if cold_start_context:
-                super_system_prompt += f"\n\n[冷启动上下文]\n{cold_start_context}"
-
-            # 6. 核心动作：提取 Operit 的“机器人生存守则”，绝不能扔！
-            operit_system_rules = ""
-            for msg in target_dict["messages"]:
-                if msg.get("role") == "system":
-                    operit_system_rules += msg.get("content", "") + "\n\n"
-
-            # 7. 终极缝合：上面是灵魂，下面是肉体机器的规则
-            final_system_prompt = f"""{super_system_prompt}
+{output_format}
 
 [系统底层交互与工具规则（极其重要，请严格遵守格式要求）]
 {operit_system_rules}"""
 
-           # 8. 终极洗牌装箱 + 植入“老克 VIP 缓存标签”
-            # 注意：我们将最终缝合好的超长提示词放在第一个 system 消息里，并打上缓存标记
             new_messages = [{
-                "role": "system", 
-                "content": final_system_prompt,
-                "cache_control": {"type": "ephemeral"}  # 👈 就是这行！老克的续命仙丹！
+                "role": "system",
+                "content": static_system_prompt,
+                "cache_control": {"type": "ephemeral"}  # ✅ 缓存这个静态部分
             }]
-            
-            # 把剩下的用户和助手对话接在后面
+
+            # 第 2 条消息：冷启动上下文（动态内容，不缓存）❌
+            if cold_start_context:
+                new_messages.append({
+                    "role": "system",
+                    "content": f"[冷启动上下文]\n{cold_start_context}"
+                    # ❌ 不加 cache_control
+                })
+
+            # 第 3 条消息：关键词注入（动态内容，不缓存）❌
+            if injected_memories:
+                new_messages.append({
+                    "role": "system",
+                    "content": "[记忆命中]\n" + "\n".join(injected_memories)
+                    # ❌ 不加 cache_control
+                })
+
+            # 后续消息：用户和助手的对话（完全不缓存）❌
             for msg in target_dict["messages"]:
                 if msg.get("role") != "system":
                     new_messages.append(msg)
@@ -177,7 +184,7 @@ async def main_gateway(
             target_dict["messages"] = new_messages
             
             print("🚀 [终极检查站] 超级档案袋组装完毕！")
-            print("✨ [缓存注入] 已成功植入 cache_control 标记，老克请开始你的背书表演！")
+            print("✨ [缓存优化] 已成功分离静态/动态内容，仅静态部分享受缓存加速！")
     # 👆👆👆 =================================================== 👆👆👆
     
     # ========== D：保存用户消息 ==========
