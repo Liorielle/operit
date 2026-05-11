@@ -70,11 +70,6 @@ async def main_gateway(
 
     # ========== A：冷启动注入 ==========
     cold_start_context = await get_cold_start_context(x_session_id)
-    # 👇 加的强光探照灯
-    print("🔦 探照灯报告：准备进入检查站...")
-    print(f"🔌 Supabase 连上了吗？: {'连上了✅' if supabase else '没连上❌'}")
-    print(f"✉️ 消息格式对吗？: {'对了✅' if 'messages' in parsed_data else '没找到messages❌'}")
-    # 👆 探照灯结束
     if cold_start_context:
         print(f"❄️ 冷启动：从前一个会话恢复语气")
 
@@ -83,6 +78,11 @@ async def main_gateway(
 
     # ========== C：解析请求 ==========
     parsed_data = await parse_request(request, x_session_id)
+    # 👇 探照灯：移到这里，parsed_data 已经定义了
+    print("🔦 探照灯报告：准备进入检查站...")
+    print(f"🔌 Supabase 连上了吗？: {'连上了✅' if supabase else '没连上❌'}")
+    print(f"✉️ 消息格式对吗？: {'对了✅' if 'messages' in parsed_data else '没找到messages❌'}")
+    # 👆 探照灯结束
 
     # 👇👇👇 ========== C.5：拦截检查站（终极请求重建） ========== 👇👇👇
     if supabase and "messages" in parsed_data:
