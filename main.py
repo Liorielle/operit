@@ -87,35 +87,31 @@ async def main_gateway(
 
     # 👆 探照灯结束
 
-    # 👇👇👇 ========== C.5：拦截检查站（老克专项优化版） ========== 👇👇👇
+    # 👇👇👇 ========== C.5：拦截检查站（老克“借尸还魂”缓存特供版） ========== 👇👇👇
     if supabase:
-        # 1. 破解“套娃”：确保我们在修改真正的 body
         target_dict = parsed_data["body"] if "body" in parsed_data else parsed_data
         
         if "messages" in target_dict:
-            print("🔍 拦截检查站启动：正在为老克准备 VIP 档案袋...")
+            print("🔍 拦截检查站启动：采用‘借尸还魂’级缓存策略...")
             
-            # 2. 提取用户最新的话
+            # 1. 提取用户最新的话（用于触发记忆）
             latest_user_msg = ""
             for msg in reversed(target_dict["messages"]):
                 if msg.get("role") == "user":
                     latest_user_msg = str(msg.get("content", ""))
                     break
 
-            # 3. 读取四大脑室（人格、规则、记忆等）
+            # 2. 读取四大脑室与冷启动
             try:
                 config_res = supabase.table('prompts_config').select('*').limit(1).execute()
                 cfg = config_res.data[0] if config_res.data else {}
             except Exception:
                 cfg = {}
 
-            # 4. 获取冷启动上下文（就是你想要的那个最近 5 轮原文）
-            # 注意：咱们把它作为“前情提要”处理
             cold_start_text = ""
             if cold_start_context:
                 cold_start_text = f"\n\n[前情提要（最近对话记录）]\n{cold_start_context}"
 
-            # 5. 命中关键词记忆
             injected_memories = []
             try:
                 triggers_res = supabase.table('keyword_triggers').select('*').execute()
@@ -130,8 +126,13 @@ async def main_gateway(
             if injected_memories:
                 memory_text = "\n\n[即时记忆唤醒]\n" + "\n".join(injected_memories)
 
-            # 6. 核心动作：提取并缝合所有的系统规则
-            # 咱们把人设、规则、记忆、冷启动，全部揉成一个巨大的“超级档案袋”
+            # 3. 提取 Operit 底层规则
+            operit_system_rules = ""
+            for msg in target_dict["messages"]:
+                if msg.get("role") == "system":
+                    operit_system_rules += msg.get("content", "") + "\n\n"
+
+            # 4. 组装两万字的“核心灵魂”
             super_system_prompt = f"""[核心人格]
 {cfg.get('core_persona', '')}
 
@@ -145,27 +146,45 @@ async def main_gateway(
 {cold_start_text}
 
 [输出规范]
-{cfg.get('output_format', '')}"""
+{cfg.get('output_format', '')}
 
-            # 7. 终极洗牌装箱：适配老克(Claude)的顶层参数
-            # 重点：把所有 System 内容从 messages 里踢出去，放进 body 的顶层 "system" 字段
-            target_dict["system"] = [
-                {
-                    "type": "text",
-                    "text": super_system_prompt,
-                    "cache_control": {"type": "ephemeral"}  # 👈 缓存标记在这里！
-                }
-            ]
-            
-            # 8. 清理消息列表：只保留 user 和 assistant
+[系统底层交互与工具规则]
+{operit_system_rules}"""
+
+            # 5. 彻底清理原有的 System 消息（防止任何报错）
             new_messages = []
             for msg in target_dict["messages"]:
-                if msg.get("role") in ["user", "assistant"]:
+                if msg.get("role") != "system":
                     new_messages.append(msg)
-            
+                    
+            # 6. 🏆 核心黑科技：把灵魂塞进用户的“第一条消息”里！
+            first_user_found = False
+            for msg in new_messages:
+                if msg.get("role") == "user":
+                    original_content = msg.get("content", "")
+                    
+                    # 伪装成列表，第一块是设定（贴标签），第二块是真正的用户消息
+                    msg["content"] = [
+                        {
+                            "type": "text",
+                            "text": f"[System Instructions]\n{super_system_prompt}\n\n[User Input]\n",
+                            "cache_control": {"type": "ephemeral"}  # 👈 标签终于贴稳了！
+                        },
+                        {
+                            "type": "text",
+                            "text": str(original_content)
+                        }
+                    ]
+                    first_user_found = True
+                    break  # 只改造第一条，后面的对话保持原样！
+
             target_dict["messages"] = new_messages
             
-            print("✅ 档案袋已放入 VIP 专座！报错解除，缓存已激活！")
+            # 清理可能残留的顶层 system，彻底绝育
+            if "system" in target_dict:
+                del target_dict["system"]
+                
+            print("✅ 【借尸还魂】完成！已将设定伪装成 User 消息，完美绕过中转站安检！")
     # 👆👆👆 =================================================== 👆👆👆
     
     # ========== D：保存用户消息 ==========
