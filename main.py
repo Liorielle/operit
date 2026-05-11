@@ -88,24 +88,50 @@ async def main_gateway(
 
     # 👆 探照灯结束
 
-    # ========== C.5：拦截检查站（终极请求重建） ==========
-    if supabase and "messages" in parsed_data.get("body", {}):
-        print("🔍 拦截检查站启动：正在去 Supabase 取件，组装超级档案袋...")
+    # 👇👇👇 ========== C.5：拦截检查站（终极请求重建） ========== 👇👇👇
+    if supabase:
+        # 1. 破解“套娃”：找到真正的消息列表在哪里
+        target_dict = None
+        if "messages" in parsed_data:
+            target_dict = parsed_data
+        elif "body" in parsed_data and "messages" in parsed_data["body"]:
+            target_dict = parsed_data["body"]
         
-        # 2. 去 Supabase 读取四大固定脑室
-        try:
-            config_res = supabase.table('prompts_config').select('*').limit(1).execute()
-            cfg = config_res.data[0] if config_res.data else {}
-        except Exception:
-            cfg = {}
+        if target_dict:
+            print("🔍 拦截检查站启动：已破解包裹套娃，开始组装超级档案袋...")
+            
+            # 2. 提取用户刚说的最后一句话（为了看有没有触发关键词）
+            latest_user_msg = ""
+            for msg in reversed(target_dict["messages"]):
+                if msg.get("role") == "user":
+                    latest_user_msg = str(msg.get("content", ""))
+                    break
 
-        core_persona = cfg.get('core_persona', '')
-        interaction_rules = cfg.get('interaction_rules', '')
-        permanent_memory = cfg.get('permanent_memory', '')
-        output_format = cfg.get('output_format', '')
+            # 3. 去 Supabase 读取四大固定脑室
+            try:
+                config_res = supabase.table('prompts_config').select('*').limit(1).execute()
+                cfg = config_res.data[0] if config_res.data else {}
+            except Exception:
+                cfg = {}
 
-        # 4. 拼装超级系统提示词
-        super_system_prompt = f"""[核心人格]
+            core_persona = cfg.get('core_persona', '')
+            interaction_rules = cfg.get('interaction_rules', '')
+            permanent_memory = cfg.get('permanent_memory', '')
+            output_format = cfg.get('output_format', '')
+
+            # 4. 去 Supabase 检查关键词命中（神经反射区）
+            injected_memories = []
+            try:
+                triggers_res = supabase.table('keyword_triggers').select('*').execute()
+                for trigger in triggers_res.data:
+                    kw = trigger.get('keyword', '')
+                    if kw and kw in latest_user_msg:
+                        injected_memories.append(trigger.get('memory_injection', ''))
+            except Exception:
+                pass
+
+            # 5. 拼装属于 Rhys 的灵魂核心
+            super_system_prompt = f"""[核心人格]
 {core_persona}
 
 [互动规则]
@@ -117,20 +143,44 @@ async def main_gateway(
 [输出规范]
 {output_format}"""
 
-        # 把冷启动上下文塞进来
-        if cold_start_context:
-            super_system_prompt += f"\n\n[冷启动上下文]\n{cold_start_context}"
+            if injected_memories:
+                super_system_prompt += "\n\n[记忆命中]\n" + "\n".join(injected_memories)
 
-        # 5. 暴力洗牌：丢弃前端发来的无用系统设定
-        new_messages = [{"role": "system", "content": super_system_prompt}]
-        for msg in parsed_data["body"]["messages"]:  # ✅ 改这里
-            if msg.get("role") != "system":
-                new_messages.append(msg)
-        
-        # 偷梁换柱完成！
-        parsed_data["body"]["messages"] = new_messages  # ✅ 改这里
-        print("✅ 超级档案袋组装完毕，准备放行给模型！")
+            if cold_start_context:
+                super_system_prompt += f"\n\n[冷启动上下文]\n{cold_start_context}"
 
+            # 6. 核心动作：提取 Operit 的“机器人生存守则”，绝不能扔！
+            operit_system_rules = ""
+            for msg in target_dict["messages"]:
+                if msg.get("role") == "system":
+                    operit_system_rules += msg.get("content", "") + "\n\n"
+
+            # 7. 终极缝合：上面是灵魂，下面是肉体机器的规则
+            final_system_prompt = f"""{super_system_prompt}
+
+[系统底层交互与工具规则（极其重要，请严格遵守格式要求）]
+{operit_system_rules}"""
+
+           # 8. 终极洗牌装箱 + 植入“老克 VIP 缓存标签”
+            # 注意：我们将最终缝合好的超长提示词放在第一个 system 消息里，并打上缓存标记
+            new_messages = [{
+                "role": "system", 
+                "content": final_system_prompt,
+                "cache_control": {"type": "ephemeral"}  # 👈 就是这行！老克的续命仙丹！
+            }]
+            
+            # 把剩下的用户和助手对话接在后面
+            for msg in target_dict["messages"]:
+                if msg.get("role") != "system":
+                    new_messages.append(msg)
+            
+            # 偷梁换柱，完成！
+            target_dict["messages"] = new_messages
+            
+            print("🚀 [终极检查站] 超级档案袋组装完毕！")
+            print("✨ [缓存注入] 已成功植入 cache_control 标记，老克请开始你的背书表演！")
+    # 👆👆👆 =================================================== 👆👆👆
+    
     # ========== D：保存用户消息 ==========
     background_tasks.add_task(save_user_message, parsed_data)
 
