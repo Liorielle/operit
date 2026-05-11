@@ -78,6 +78,8 @@ async def main_gateway(
 
     # ========== C：解析请求 ==========
     parsed_data = await parse_request(request, x_session_id)
+    # 👇 加在这里：直接把 Operit 发来的整个包裹打印出来！
+    print(f"📦 透视眼报告：Operit 发来的完整包裹长这样 -> {parsed_data}")
     # 👇 探照灯：移到这里，parsed_data 已经定义了
     print("🔦 探照灯报告：准备进入检查站...")
     print(f"🔌 Supabase 连上了吗？: {'连上了✅' if supabase else '没连上❌'}")
