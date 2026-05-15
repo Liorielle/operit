@@ -170,8 +170,9 @@ async def main_gateway(request: Request, background_tasks: BackgroundTasks, auth
 
             super_system = f"{cfg.get('core_persona','')}\n{cfg.get('interaction_rules','')}\n{cold_start_context or ''}\n{cfg.get('output_format','')}"
 
-            # 🏆 四大断点 (BP1-BP4) 1h TTL 投放
-            # BP1 & BP2 (挂在第一条消息上)
+# ---------------------------------------------
+            # 🏆 投放四大断点 (BP1-BP4) 1h TTL
+            # ---------------------------------------------
             first_msg = raw_chat_history[0]
             orig_text = str(first_msg.get("content", ""))
             first_msg["content"] = [
@@ -191,6 +192,19 @@ async def main_gateway(request: Request, background_tasks: BackgroundTasks, auth
                     msg["content"] = [{"type": "text", "text": str(msg.get("content","")), "cache_control": {"type": "ephemeral", "ttl": "1h"}}]
                     break
             
+            # 👇👇👇 新增：缓存指纹检测器 👇👇👇
+            import hashlib
+            def get_fp(text): return hashlib.md5(str(text).encode()).hexdigest()[:6] # 提取6位指纹
+            
+            print("================ 🔍 缓存指纹质检报告 ================")
+            print(f"🏷️ [BP1 人设与前情] 长度:{len(super_system)} | 指纹:[{get_fp(super_system)}]")
+            print(f"🏷️ [BP2 榨汁机日记] 长度:{len(latest_diary)} | 指纹:[{get_fp(latest_diary)}]")
+            if len(raw_chat_history) >= FROZEN_MSGS:
+                bp3_text = str(raw_chat_history[FROZEN_MSGS - 1].get("content",""))
+                print(f"🏷️ [BP3 第16句锚点] 长度:{len(bp3_text)} | 指纹:[{get_fp(bp3_text)}]")
+            print("===================================================")
+            # 👆👆👆 检测器结束 👆👆👆
+
             # 封箱装车
             target_dict["messages"] = raw_chat_history
             if "system" in target_dict: del target_dict["system"]
