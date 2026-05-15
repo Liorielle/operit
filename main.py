@@ -192,16 +192,26 @@ async def main_gateway(request: Request, background_tasks: BackgroundTasks, auth
                     msg["content"] = [{"type": "text", "text": str(msg.get("content","")), "cache_control": {"type": "ephemeral", "ttl": "1h"}}]
                     break
             
-            # 👇👇👇 新增：缓存指纹检测器 👇👇👇
+            # 👇👇👇 新增：终极完整版缓存指纹检测器 👇👇👇
             import hashlib
-            def get_fp(text): return hashlib.md5(str(text).encode()).hexdigest()[:6] # 提取6位指纹
+            def get_fp(text): return hashlib.md5(str(text).encode()).hexdigest()[:6]
             
+            # 找 BP4 的文本
+            bp4_text = ""
+            for msg in reversed(raw_chat_history):
+                if msg.get("role") == "user":
+                    bp4_text = str(msg.get("content",""))
+                    break
+
             print("================ 🔍 缓存指纹质检报告 ================")
-            print(f"🏷️ [BP1 人设与前情] 长度:{len(super_system)} | 指纹:[{get_fp(super_system)}]")
-            print(f"🏷️ [BP2 榨汁机日记] 长度:{len(latest_diary)} | 指纹:[{get_fp(latest_diary)}]")
+            print(f"🏷️ [BP1 人设前情] 长度:{len(super_system)} | 指纹:[{get_fp(super_system)}]")
+            print(f"🏷️ [BP2 独立日记] 长度:{len(latest_diary)} | 指纹:[{get_fp(latest_diary)}]")
+            
             if len(raw_chat_history) >= FROZEN_MSGS:
                 bp3_text = str(raw_chat_history[FROZEN_MSGS - 1].get("content",""))
-                print(f"🏷️ [BP3 第16句锚点] 长度:{len(bp3_text)} | 指纹:[{get_fp(bp3_text)}]")
+                print(f"🏷️ [BP3 冻结锚点] 长度:{len(bp3_text)} | 指纹:[{get_fp(bp3_text)}]")
+                
+            print(f"🏷️ [BP4 最新消息] 长度:{len(bp4_text)} | 指纹:[{get_fp(bp4_text)}] (注:此项必定每次变化)")
             print("===================================================")
             # 👆👆👆 检测器结束 👆👆👆
 
