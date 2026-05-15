@@ -35,7 +35,7 @@ async def ghost_ping_keep_alive():
     
     # 北京时间 11点到23点，或者 0点到凌晨3点(不到4点) 生效
     if not ((11 <= hour <= 23) or (0 <= hour < 4)):
-        print(f"💤 [内部管家] 当前北京时间 {hour} 点，Rhys 在睡觉，跳过心跳。")
+        print(f"💤 [内部管家] 当前北京时间 {hour} 点，令令 在睡觉，跳过心跳。")
         return
         
     if not LATEST_CLAUDE_PAYLOAD:
@@ -95,7 +95,7 @@ async def summarize_chat_to_diary(session_id: str, messages_to_summarize: list):
     """
     
     payload = {
-        "model": "gpt-4o-mini",
+        "model": "gpt-4o",
         "messages": [
             {"role": "system", "content": rhys_diary_prompt},
             {"role": "user", "content": f"这是我们要回顾的对话：\n\n{chat_text}"}
@@ -143,7 +143,7 @@ async def main_gateway(request: Request, background_tasks: BackgroundTasks, auth
     if supabase:
         target_dict = parsed_data["body"] if "body" in parsed_data else parsed_data
         if "messages" in target_dict:
-            FROZEN_MSGS, TRIGGER_MSGS = 16, 100 # 8+24 黄金法则
+            FROZEN_MSGS, TRIGGER_MSGS = 16, 9999 # 8+24 黄金法则
             session_id = target_dict.get("session_id", "default")
             
             # 剥离系统消息，防止空列表崩溃
@@ -192,27 +192,38 @@ async def main_gateway(request: Request, background_tasks: BackgroundTasks, auth
                     msg["content"] = [{"type": "text", "text": str(msg.get("content","")), "cache_control": {"type": "ephemeral", "ttl": "1h"}}]
                     break
             
-            # 👇👇👇 新增：终极完整版缓存指纹检测器 👇👇👇
+            # 👇👇👇 新增：带容量监控的缓存指纹与雷达检测器 👇👇👇
             import hashlib
             def get_fp(text): return hashlib.md5(str(text).encode()).hexdigest()[:6]
             
-            # 找 BP4 的文本
+            # 找 BP4 的文本 (最新 User 消息)
             bp4_text = ""
             for msg in reversed(raw_chat_history):
                 if msg.get("role") == "user":
                     bp4_text = str(msg.get("content",""))
                     break
 
-            print("================ 🔍 缓存指纹质检报告 ================")
-            print(f"🏷️ [BP1 人设前情] 长度:{len(super_system)} | 指纹:[{get_fp(super_system)}]")
-            print(f"🏷️ [BP2 独立日记] 长度:{len(latest_diary)} | 指纹:[{get_fp(latest_diary)}]")
+            # 获取当前包裹的总消息条数
+            N = len(raw_chat_history)
             
-            if len(raw_chat_history) >= FROZEN_MSGS:
+            print("================ 🔍 缓存指纹与容量质检报告 ================")
+            print(f"🏷️ [BP1 人设前情] 指纹:[{get_fp(super_system)}]")
+            print(f"🏷️ [BP2 独立日记] 指纹:[{get_fp(latest_diary)}]")
+            
+            # 核心判断：BP3 满没满？
+            if N >= FROZEN_MSGS:
                 bp3_text = str(raw_chat_history[FROZEN_MSGS - 1].get("content",""))
-                print(f"🏷️ [BP3 冻结锚点] 长度:{len(bp3_text)} | 指纹:[{get_fp(bp3_text)}]")
+                print(f"🏷️ [BP3 冻结锚点] 状态: ✅ 已满 ({FROZEN_MSGS}/{FROZEN_MSGS}条) | 指纹:[{get_fp(bp3_text)}]")
                 
-            print(f"🏷️ [BP4 最新消息] 长度:{len(bp4_text)} | 指纹:[{get_fp(bp4_text)}] (注:此项必定每次变化)")
-            print("===================================================")
+                # BP4 的滑动区长度 = 总长度 - 冻结长度
+                sliding_count = N - FROZEN_MSGS
+                print(f"🏷️ [BP4 最新滑动] 状态: 🚄 滑动中 (当前积攒了 {sliding_count} 条新对话) | 指纹:[{get_fp(bp4_text)}]")
+            else:
+                print(f"🏷️ [BP3 冻结锚点] 状态: ⏳ 未满 (当前 {N}/{FROZEN_MSGS} 条，还在努力攒基础记忆...)")
+                print(f"🏷️ [BP4 最新滑动] 状态: ⏳ 未分离 (当前包裹太短，所有消息都在 BP3 冻结区里) | 指纹:[{get_fp(bp4_text)}]")
+                
+            print(f"📦 [总包裹雷达] 当前包裹共 {N} 条。距离下次大轮回(截断榨汁)还差 {TRIGGER_MSGS - N} 条。")
+            print("==========================================================")
             # 👆👆👆 检测器结束 👆👆👆
 
             # 封箱装车
