@@ -143,7 +143,7 @@ async def main_gateway(request: Request, background_tasks: BackgroundTasks, auth
     if supabase:
         target_dict = parsed_data["body"] if "body" in parsed_data else parsed_data
         if "messages" in target_dict:
-            FROZEN_MSGS, TRIGGER_MSGS = 16, 64 # 8+24 黄金法则
+            FROZEN_MSGS, TRIGGER_MSGS = 16, 9999 # 8+24 黄金法则
             session_id = target_dict.get("session_id", "default")
             
             # 剥离系统消息，防止空列表崩溃
