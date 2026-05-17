@@ -159,7 +159,7 @@ def make_plain_msg(role, text):
 # ========== 应用生命周期 ==========
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("🏠 网关启动成功")
+    print("🚀 网关大别墅启动成功")
     async def internal_butler():
         while True:
             await asyncio.sleep(55 * 60)
@@ -214,14 +214,13 @@ async def main_gateway(
             .select("id, role, content")
             .eq("session_id", session_id)
             .neq("digested", True)
-            .order("created_at", ascending=True)
+            .order("created_at", desc=False)
             .execute()
         )
         active_history = logs_res.data if logs_res.data else []
     except Exception as e:
         print(f"❌ [数据库] 读取历史失败：{e}")
         active_history = []
-
 
     # ── 1a+. 旧窗口迁移保护 ──
     # 如果活跃消息远超一个周期，说明是旧窗口第一次进入新缓存体系
@@ -255,7 +254,7 @@ async def main_gateway(
             supabase.table("chat_summaries")
             .select("summary_text")
             .eq("session_id", session_id)
-            .order("created_at", descending=True)
+            .order("created_at", desc=True)
             .limit(1)
             .execute()
         )
