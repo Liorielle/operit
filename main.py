@@ -162,8 +162,7 @@ def make_cached_msg(role, text):
     }
 
 def make_plain_msg(role, text):
-    """构造一条普通消息（无缓存断点）"""
-    return {"role": role, "content": text}
+    return {"role": role, "content": [{"type": "text", "text": text}]}
 
 # ========== 应用生命周期 ==========
 @asynccontextmanager
@@ -360,7 +359,7 @@ async def main_gateway(
     # 占位，保证 user/assistant 交替
     final_messages.append({
         "role": "assistant",
-        "content": "Understood.",
+        "content": [{"type": "text", "text": "Understood."}],
     })
 
     # --- BP3：冻结区（最后一条打断点）---
