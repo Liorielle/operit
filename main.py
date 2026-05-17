@@ -39,16 +39,15 @@ async def ghost_ping_keep_alive():
     global LATEST_CLAUDE_PAYLOAD
     bj_tz = timezone(timedelta(hours=8))
     hour = datetime.now(bj_tz).hour
-    if not ((14 <= hour <= 23) or (0 <= hour < 4)):
-        print(f"[保活] 北京时间 {hour} 点，跳过心跳。")
+    if not ((11 <= hour <= 23) or (0 <= hour < 4)):
+        print(f"💤 [心跳] 北京时间 {hour}点，休眠中，跳过")
         return
     if not LATEST_CLAUDE_PAYLOAD:
-        print("[保活] 暂无快照，跳过心跳。")
+        print(f"💤 [心跳] 无快照，跳过")
         return
 
     ghost_payload = copy.deepcopy(LATEST_CLAUDE_PAYLOAD)
 
-    # 最后一条是 user，先补一条 assistant 保证交替
     last_role = ghost_payload["messages"][-1].get("role", "")
     if last_role == "user":
         ghost_payload["messages"].append({
@@ -56,7 +55,6 @@ async def ghost_ping_keep_alive():
             "content": "."
         })
 
-    # 追加心跳消息
     ghost_payload["messages"].append({
         "role": "user",
         "content": "."
@@ -74,11 +72,22 @@ async def ghost_ping_keep_alive():
                 timeout=30,
             )
             if resp.status_code == 200:
-                print(f"[保活成功] {hour}点心跳完成，缓存续命1小时")
+                # 尝试读取缓存命中情况
+                try:
+                    body = resp.json()
+                    usage = body.get("usage", {})
+                    total_p = usage.get("prompt_tokens", 0)
+                    cached_p = 0
+                    if "prompt_tokens_details" in usage:
+                        cached_p = usage["prompt_tokens_details"].get("cached_tokens", 0)
+                    hit = f"{cached_p/total_p*100:.0f}%" if total_p > 0 else "N/A"
+                    print(f"💓 [心跳] {hour}点 成功 | 发送:{total_p} 缓存:{cached_p} 命中率:{hit}")
+                except:
+                    print(f"💓 [心跳] {hour}点 成功 | 账单解析失败")
             else:
-                print(f"❌ [保活失败] {resp.text}")
+                print(f"❌ [心跳] {hour}点 失败 | {resp.text[:100]}")
         except Exception as e:
-            print(f"❌ [保活异常] {e}")
+            print(f"❌ [心跳] {hour}点 异常 | {e}")
 
 # ========== 日记榨汁机 ==========
 async def summarize_chat_to_diary(session_id: str, messages_to_summarize: list):
@@ -390,26 +399,19 @@ async def main_gateway(
         del target_dict["system"]
 
     # ── 7. 质检报告 ──
-    print("=" * 55)
-    print("         缓存质检报告")
-    print("=" * 55)
-    print(f"  BP1 人格文档  | 指纹: {get_fp(persona_text)}")
-    print(f"  BP2 滚动摘要  | 指纹: {get_fp(latest_diary)}")
-    if bp3_raw:
-        bp3_last = extract_text(bp3_raw[-1]["content"])
-        print(f"  BP3 冻结区    | {len(bp3_raw)}/{FROZEN_MSGS}条 | 指纹: {get_fp(bp3_last)}")
-    else:
-        print(f"  BP3 冻结区    | 空")
-    if bp4_raw:
-        bp4_last = extract_text(bp4_raw[-1]["content"])
-        print(f"  BP4 滑动区    | {len(bp4_raw)}条 | 指纹: {get_fp(bp4_last)}")
-    else:
-        print(f"  BP4 滑动区    | 空")
-    print(f"  当前消息      | {current_user_text[:50]}...")
+    bp3_status = f"✅ {len(bp3_raw)}/{FROZEN_MSGS}条 指纹:{get_fp(extract_text(bp3_raw[-1]['content']))}" if bp3_raw else "⏳ 空"
+    bp4_status = f"📝 {len(bp4_raw)}条 指纹:{get_fp(extract_text(bp4_raw[-1]['content']))}" if bp4_raw else "⏳ 空"
     rounds_done = total / 2
-    rounds_left = (CYCLE_MSGS - total + 1) / 2
-    print(f"  周期进度      | 第 {rounds_done:.0f}/32 轮 | 距轮回还有 {max(0, rounds_left):.0f} 轮")
-    print("=" * 55)
+    rounds_left = max(0, (CYCLE_MSGS - total + 1) / 2)
+
+    print(f"\n┌─────────── 第 {rounds_done:.0f} 轮 ───────────┐")
+    print(f"│ 历史: {len(active_history)}条 ({len(active_history)//2}轮)")
+    print(f"│ BP1 人格  ✅ 指纹:{get_fp(persona_text)}")
+    print(f"│ BP2 摘要  ✅ 指纹:{get_fp(latest_diary)}")
+    print(f"│ BP3 冻结  {bp3_status}")
+    print(f"│ BP4 滑动  {bp4_status}")
+    print(f"│ 冷启动    ⏸️ 未启用")
+    print(f"│ 进度: 第 {rounds_done:.0f}/{CYCLE_MSGS // 2} 轮 | 距轮回还有 {rounds_left:.0f} 轮")
 
     # ── 8. 保活快照 ──
     global LATEST_CLAUDE_PAYLOAD
@@ -423,6 +425,8 @@ async def main_gateway(
     async def wrapper():
         async for chunk in stream_forward(parsed_data, ai_reply_box):
             yield chunk
+        # 流式结束后打印闭合线
+        print(f"└───────────────────────────────┘\n")
 
     background_tasks.add_task(save_ai_reply, parsed_data, ai_reply_box)
 
