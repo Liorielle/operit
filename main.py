@@ -222,7 +222,7 @@ async def main_gateway(
             .select("id, role, content")
             .eq("session_id", session_id)
             .neq("digested", True)
-            .order("created_at_beijing", desc=False)
+            .order("id", desc=False)
             .execute()
         )
         active_history = logs_res.data if logs_res.data else []
