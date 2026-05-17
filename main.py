@@ -227,27 +227,26 @@ async def main_gateway(
     # 如果活跃消息远超一个周期，说明是旧窗口第一次进入新缓存体系
     # 保留最近32轮（64条）作为活跃，其余全部标记为 digested
     if len(active_history) > CYCLE_MSGS:
-        overflow_count = len(active_history) - CYCLE_MSGS
-        to_archive = active_history[:overflow_count]
-        archive_ids = [msg["id"] for msg in to_archive]
+       overflow_count = len(active_history) - CYCLE_MSGS
+       to_archive = active_history[:overflow_count]
+       archive_ids = [msg["id"] for msg in to_archive]
 
-        print(f"🛡️ [迁移保护] 检测到旧窗口，活跃消息 {len(active_history)} 条")
-        print(f"🛡️ [迁移保护] 保留最近 {CYCLE_MSGS} 条，归档 {len(archive_ids)} 条")
+       print(f"🛡️ [迁移保护] 检测到旧窗口，活跃消息 {len(active_history)} 条")
+       print(f"🛡️ [迁移保护] 保留最近 {CYCLE_MSGS} 条，归档 {len(archive_ids)} 条")
 
-        try:
-    # 分批标记（Supabase 单次 in 有长度限制）
-    BATCH_SIZE = 500
-    for i in range(0, len(archive_ids), BATCH_SIZE):
-        batch = archive_ids[i:i + BATCH_SIZE]
-        supabase.table("chat_logs").update(
-            {"digested": True}
-        ).in_("id", batch).execute()
-    print(f"✅ [迁移保护] 已归档 {len(archive_ids)} 条旧消息")
-except Exception as e:
-    print(f"❌ [迁移保护] 归档失败：{e}")
-
-    # 迁移后，只保留最近64条作为活跃
-    active_history = active_history[-CYCLE_MSGS:]
+       try:
+           # 分批标记（Supabase 单次 in 有长度限制）
+           BATCH_SIZE = 500
+           for i in range(0, len(archive_ids), BATCH_SIZE):
+               batch = archive_ids[i:i + BATCH_SIZE]
+               supabase.table("chat_logs").update(
+                   {"digested": True}
+               ).in_("id", batch).execute()
+           print(f"✅ [迁移保护] 已归档 {len(archive_ids)} 条旧消息")
+       except Exception as e:
+           print(f"❌ [迁移保护] 归档失败：{e}")
+       # 迁移后，只保留最近64条作为活跃
+       active_history = active_history[-CYCLE_MSGS:]
 
     # 1b. 读最新摘要
     latest_diary = "（鲜活的故事正在发生）"
