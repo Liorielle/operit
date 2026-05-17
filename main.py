@@ -223,7 +223,7 @@ async def main_gateway(
             .select("id, role, content")
             .eq("session_id", session_id)
             .neq("digested", True)
-            .order("created_at", desc=False)
+            .order("created_at_beijing", desc=False)
             .execute()
         )
         active_history = logs_res.data if logs_res.data else []
@@ -425,8 +425,6 @@ async def main_gateway(
     async def wrapper():
         async for chunk in stream_forward(parsed_data, ai_reply_box):
             yield chunk
-        # 流式结束后打印闭合线
-        print(f"└───────────────────────────────┘\n")
 
     background_tasks.add_task(save_ai_reply, parsed_data, ai_reply_box)
 
