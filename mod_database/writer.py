@@ -18,13 +18,6 @@ async def save_user_message(parsed_data):
     )
 
 async def save_ai_reply(parsed_data, ai_reply_box):
-    """
-    保存 AI 回复
-
-    参数：
-    - parsed_data: 解析后的请求数据（来自 mod_parse/parser.py）
-    - ai_reply_box: 包含完整 AI 回复的列表容器
-    """
     if ai_reply_box:
         full_ai_text = ai_reply_box[0]
         await save_chat_to_db(
@@ -32,8 +25,10 @@ async def save_ai_reply(parsed_data, ai_reply_box):
             content=full_ai_text,
             session_id=parsed_data["session_id"],
             model_name=parsed_data["model_name"],
-            nickname="Rhys"  # 👇 没收了他的伪装，改回本名！
+            nickname="Rhys"
         )
+    # 所有保存完毕，打印闭合线
+    print(f"└───────────────────────────────┘\n")
 
 async def save_chat_to_db(role, content, session_id, model_name, nickname):
     url = os.getenv("SUPABASE_URL")
