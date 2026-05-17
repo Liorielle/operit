@@ -235,16 +235,16 @@ async def main_gateway(
         print(f"🛡️ [迁移保护] 保留最近 {CYCLE_MSGS} 条，归档 {len(archive_ids)} 条")
 
         try:
-            # 分批标记（Supabase 单次 in 有长度限制）
-            BATCH_SIZE = 500
-            for i in range(0, len(archive_ids), BATCH_SIZE):
-                batch = archive_ids[i:i + BATCH_SIZE]
-                supabase.table("chat_logs").update(
-                {"digested": True}
-            ).in_("id", batch).execute()
-        print(f"✅ [迁移保护] 已归档 {len(archive_ids)} 条旧消息")
-    except Exception as e:
-        print(f"❌ [迁移保护] 归档失败：{e}")
+    # 分批标记（Supabase 单次 in 有长度限制）
+    BATCH_SIZE = 500
+    for i in range(0, len(archive_ids), BATCH_SIZE):
+        batch = archive_ids[i:i + BATCH_SIZE]
+        supabase.table("chat_logs").update(
+            {"digested": True}
+        ).in_("id", batch).execute()
+    print(f"✅ [迁移保护] 已归档 {len(archive_ids)} 条旧消息")
+except Exception as e:
+    print(f"❌ [迁移保护] 归档失败：{e}")
 
     # 迁移后，只保留最近64条作为活跃
     active_history = active_history[-CYCLE_MSGS:]
